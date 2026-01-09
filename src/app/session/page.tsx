@@ -345,9 +345,9 @@ function SessionDetailsPage() {
             )}
 
             {/* Recording Link */}
-            {session.session_recording && (
-              <div className="border-t border-slate-700/50 pt-6">
-                <p className="text-sm font-medium text-slate-300 mb-3">Class Recording</p>
+            <div className="border-t border-slate-700/50 pt-6">
+              <p className="text-sm font-medium text-slate-300 mb-3">Class Recording</p>
+              {session.session_recording ? (
                 <a
                   href={getRecordingUrl(session.session_recording)}
                   target="_blank"
@@ -358,8 +358,16 @@ function SessionDetailsPage() {
                   <span>View Recording</span>
                   <ExternalLink className="w-4 h-4 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
                 </a>
-              </div>
-            )}
+              ) : (
+                <div className="flex flex-col items-center justify-center py-8 px-4 bg-slate-800/30 border border-slate-700/30 rounded-xl">
+                  <div className="w-14 h-14 bg-slate-800/50 rounded-full flex items-center justify-center mb-4">
+                    <Video className="w-7 h-7 text-slate-500" />
+                  </div>
+                  <p className="text-slate-400 font-medium mb-1">No Recording Available</p>
+                  <p className="text-slate-500 text-sm text-center">Recordings will be available 24 hours after the class ends</p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </main>
