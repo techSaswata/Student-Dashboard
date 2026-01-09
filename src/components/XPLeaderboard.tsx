@@ -1,10 +1,20 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Trophy, RefreshCw, Crown, Medal, Award, Zap, Clock, Users, Search, Filter, X } from 'lucide-react'
+import { Trophy, RefreshCw, Crown, Medal, Award, Zap, Clock, Users, Search, Filter, X, BookOpen } from 'lucide-react'
 import { createClient } from '@supabase/supabase-js'
 import { LeaderboardEntry } from '@/types'
 import { cn } from '@/lib/utils'
+
+interface Batch {
+  cohortType: string
+  cohortNumber: string
+  batchName: string
+}
+
+interface XPLeaderboardProps {
+  studentBatches?: Batch[]
+}
 
 interface FilterOptions {
   cohortType: string
@@ -16,7 +26,7 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
-export default function XPLeaderboard() {
+export default function XPLeaderboard({ studentBatches }: XPLeaderboardProps) {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
   const [filteredLeaderboard, setFilteredLeaderboard] = useState<LeaderboardEntry[]>([])
   const [filters, setFilters] = useState<FilterOptions>({
@@ -59,22 +69,66 @@ export default function XPLeaderboard() {
       if (showLoading) setLoading(true)
       setError('')
 
-      console.log('🔍 Fetching XP leaderboard...')
-      const { data, error: supabaseError } = await supabase
-        .from('student_xp')
-        .select('*')
-        .order('xp', { ascending: false })
-        .order('last_updated', { ascending: true }) // Secondary sort by update time
+      let allData: any[] = []
+      
+      // If in student mode, fetch data for ALL enrolled batches
+      if (studentBatches && studentBatches.length > 0) {
+        console.log(`🔍 Fetching XP for ${studentBatches.length} batch(es)...`)
+        
+        // Fetch data for each batch in parallel
+        const batchPromises = studentBatches.map(batch => 
+          supabase
+            .from('student_xp')
+            .select('*')
+            .eq('cohort_type', batch.cohortType)
+            .eq('cohort_number', batch.cohortNumber)
+        )
+        
+        const results = await Promise.all(batchPromises)
+        
+        // Combine all results
+        for (const result of results) {
+          if (result.error) {
+            console.error('❌ Supabase error:', result.error)
+            throw result.error
+          }
+          if (result.data) {
+            allData.push(...result.data)
+          }
+        }
+        
+        // Remove duplicates (in case a student is in multiple batches)
+        const seen = new Set()
+        allData = allData.filter(entry => {
+          const key = entry.enrollment_id
+          if (seen.has(key)) return false
+          seen.add(key)
+          return true
+        })
+        
+        // Sort by XP descending
+        allData.sort((a, b) => b.xp - a.xp)
+        
+      } else {
+        // Admin mode: fetch all data
+        console.log('🔍 Fetching all XP leaderboard...')
+        const { data, error: supabaseError } = await supabase
+          .from('student_xp')
+          .select('*')
+          .order('xp', { ascending: false })
+          .order('last_updated', { ascending: true })
 
-      if (supabaseError) {
-        console.error('❌ Supabase error:', supabaseError)
-        throw supabaseError
+        if (supabaseError) {
+          console.error('❌ Supabase error:', supabaseError)
+          throw supabaseError
+        }
+        
+        allData = data || []
       }
 
-      console.log('📊 Fetched XP data:', data)
-      console.log(`📈 Records count: ${data?.length || 0}`)
+      console.log(`📈 Records count: ${allData.length}`)
 
-      const formattedData: LeaderboardEntry[] = (data || []).map((entry, index) => ({
+      const formattedData: LeaderboardEntry[] = allData.map((entry, index) => ({
         rank: index + 1,
         enrollment_id: entry.enrollment_id,
         full_name: entry.full_name,
@@ -85,9 +139,8 @@ export default function XPLeaderboard() {
         last_updated: entry.last_updated
       }))
 
-      console.log('✅ Setting leaderboard data:', formattedData)
       setLeaderboard(formattedData)
-      if (data && data.length > 0) {
+      if (allData.length > 0) {
         setLastUpdated(new Date().toLocaleString())
       }
     } catch (err) {
@@ -96,25 +149,32 @@ export default function XPLeaderboard() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [studentBatches])
+
+  // Get batch names for display
+  const batchNames = studentBatches?.map(b => b.batchName).join(' & ') || ''
 
   // Apply filters and search to leaderboard data
   useEffect(() => {
     let filtered = [...leaderboard]
 
-    // Apply cohort type filter
-    if (filters.cohortType) {
-      filtered = filtered.filter(entry => entry.cohort_type === filters.cohortType)
+    // In student mode, data is already filtered from DB, just apply search
+    // In admin mode, apply cohort filters
+    if (!studentBatches || studentBatches.length === 0) {
+      // Admin mode: Apply manual cohort type filter
+      if (filters.cohortType) {
+        filtered = filtered.filter(entry => entry.cohort_type === filters.cohortType)
+      }
+
+      // Apply cohort number filter
+      if (filters.cohortNumber) {
+        filtered = filtered.filter(entry =>
+          entry.cohort_number.includes(filters.cohortNumber)
+        )
+      }
     }
 
-    // Apply cohort number filter
-    if (filters.cohortNumber) {
-      filtered = filtered.filter(entry =>
-        entry.cohort_number.includes(filters.cohortNumber)
-      )
-    }
-
-    // Apply search filter
+    // Apply search filter (both modes)
     if (searchTerm) {
       filtered = filtered.filter(entry =>
         Object.values(entry).some(value =>
@@ -124,7 +184,7 @@ export default function XPLeaderboard() {
     }
 
     setFilteredLeaderboard(filtered)
-  }, [leaderboard, filters, searchTerm])
+  }, [leaderboard, filters, searchTerm, studentBatches])
 
   // Real-time subscription with debouncing
   useEffect(() => {
@@ -339,6 +399,9 @@ export default function XPLeaderboard() {
     </div>
   )
 
+  // Check if we're in student mode (batches provided)
+  const isStudentMode = studentBatches && studentBatches.length > 0
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -346,14 +409,27 @@ export default function XPLeaderboard() {
         <div className="space-y-1">
           <h1 className="text-2xl sm:text-3xl font-bold gradient-text flex items-center gap-3">
             <Trophy className="w-8 h-8 text-yellow-400" />
-            Student XP Leaderboard
+            {isStudentMode ? 'Batch XP Leaderboard' : 'Student XP Leaderboard'}
           </h1>
           <p className="text-sm text-muted-foreground">
-            Rankings based on Codedamn platform experience points
+            {isStudentMode 
+              ? `Rankings for ${batchNames || 'your batches'}`
+              : 'Rankings based on Codedamn platform experience points'
+            }
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Show enrolled batches info */}
+          {isStudentMode && studentBatches.length > 1 && (
+            <div className="flex items-center gap-2 px-3 py-2 bg-emerald-500/10 border border-emerald-500/30 rounded-xl">
+              <BookOpen className="w-4 h-4 text-emerald-400" />
+              <span className="text-sm text-emerald-300">
+                {studentBatches.length} batches combined
+              </span>
+            </div>
+          )}
+
           {lastUpdated && (
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Clock className="w-4 h-4" />
@@ -380,18 +456,21 @@ export default function XPLeaderboard() {
           )}
           
           <div className="flex gap-2">
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className={cn(
-                "flex items-center gap-2 px-3 py-2 rounded-lg transition-colors font-medium text-sm",
-                showFilters
-                  ? "bg-purple-600 text-white"
-                  : "bg-muted/50 hover:bg-muted/70 text-foreground"
-              )}
-            >
-              <Filter className="w-4 h-4" />
-              Filters
-            </button>
+            {/* Only show filters button in admin mode */}
+            {!isStudentMode && (
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                className={cn(
+                  "flex items-center gap-2 px-3 py-2 rounded-lg transition-colors font-medium text-sm",
+                  showFilters
+                    ? "bg-purple-600 text-white"
+                    : "bg-muted/50 hover:bg-muted/70 text-foreground"
+                )}
+              >
+                <Filter className="w-4 h-4" />
+                Filters
+              </button>
+            )}
             <button
               onClick={() => fetchLeaderboard(true)}
               disabled={loading}
@@ -400,27 +479,30 @@ export default function XPLeaderboard() {
               <RefreshCw className={cn("w-4 h-4", loading && "animate-spin")} />
               Reload
             </button>
-            <button
-              onClick={updateXPData}
-              disabled={refreshing || loading || autoRetryStatus?.active}
-              className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 text-white rounded-lg transition-colors font-medium"
-            >
-              <RefreshCw className={cn("w-4 h-4", (refreshing || autoRetryStatus?.active) && "animate-spin")} />
-              {refreshing 
-                ? updateProgress.total > 0 
-                  ? `Updating... (${updateProgress.current}/${updateProgress.total})`
-                  : 'Updating...'
-                : autoRetryStatus?.active 
-                  ? 'Auto-retry scheduled'
-                  : 'Refresh XP'
-              }
-            </button>
+            {/* Only show refresh XP button in admin mode */}
+            {!isStudentMode && (
+              <button
+                onClick={updateXPData}
+                disabled={refreshing || loading || autoRetryStatus?.active}
+                className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 text-white rounded-lg transition-colors font-medium"
+              >
+                <RefreshCw className={cn("w-4 h-4", (refreshing || autoRetryStatus?.active) && "animate-spin")} />
+                {refreshing 
+                  ? updateProgress.total > 0 
+                    ? `Updating... (${updateProgress.current}/${updateProgress.total})`
+                    : 'Updating...'
+                  : autoRetryStatus?.active 
+                    ? 'Auto-retry scheduled'
+                    : 'Refresh XP'
+                }
+              </button>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Filters */}
-      {showFilters && (
+      {/* Filters - Only show in admin mode */}
+      {!isStudentMode && showFilters && (
         <div className="bg-card/50 backdrop-blur-xl border border-border/50 rounded-xl sm:rounded-2xl p-4 sm:p-6 space-y-4">
           <h3 className="text-lg font-semibold gradient-text">Filters</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -466,6 +548,22 @@ export default function XPLeaderboard() {
                 />
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Search bar for student mode */}
+      {isStudentMode && (
+        <div className="bg-slate-800/30 backdrop-blur-xl border border-white/5 rounded-xl p-4">
+          <div className="relative max-w-md">
+            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-500" />
+            <input
+              type="text"
+              placeholder="Search students..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-12 pr-4 py-3 bg-slate-900/50 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50"
+            />
           </div>
         </div>
       )}
@@ -533,7 +631,6 @@ export default function XPLeaderboard() {
               {/* Header */}
               <div className="flex items-center gap-4 p-4 border-b border-border/50 bg-muted/20 text-sm font-semibold text-muted-foreground">
                 <div className="w-16 flex-shrink-0">Rank</div>
-                <div className="w-32 flex-shrink-0">ID</div>
                 <div className="flex-1 min-w-0">Name</div>
                 <div className="w-24 flex-shrink-0">Cohort</div>
                 <div className="w-20 flex-shrink-0">Batch</div>
@@ -555,13 +652,8 @@ export default function XPLeaderboard() {
                       <span className="font-bold">{index + 1}</span>
                     </div>
 
-                    <div className="w-32 flex-shrink-0 font-mono text-sm">
-                      {entry.enrollment_id}
-                    </div>
-
                     <div className="flex-1 min-w-0">
                       <div className="font-semibold truncate">{entry.full_name}</div>
-                      <div className="text-xs opacity-70 truncate">{entry.email}</div>
                     </div>
 
                     <div className="w-24 flex-shrink-0">

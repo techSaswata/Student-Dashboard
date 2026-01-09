@@ -125,6 +125,17 @@ function HomePage() {
     }
   }
 
+  const handleSessionClick = (session: SessionData) => {
+    sessionStorage.setItem('sessionPageData', JSON.stringify({
+      table: session.tableName,
+      date: session.date,
+      time: session.time,
+      batch: session.batchName,
+      from: 'home'
+    }))
+    router.push('/session')
+  }
+
   return (
     <div className="min-h-screen bg-[#0a0a0f]">
       {/* Background */}
@@ -254,7 +265,10 @@ function HomePage() {
 
                 {todaySession ? (
                   <div className="space-y-4">
-                    <div className="rounded-xl p-4 border bg-slate-800/50 border-slate-700/50">
+                    <button
+                      onClick={() => handleSessionClick(todaySession)}
+                      className="w-full text-left rounded-xl p-4 border bg-slate-800/50 border-slate-700/50 hover:border-emerald-500/30 hover:bg-slate-800 transition-all cursor-pointer group"
+                    >
                       <div className="flex items-start justify-between mb-3">
                         <span className={`px-2 py-1 text-xs rounded-md font-medium border ${getSessionTypeColor(todaySession.sessionType)}`}>
                           {todaySession.sessionType || 'Session'}
@@ -263,7 +277,7 @@ function HomePage() {
                           {todaySession.time || 'TBD'}
                         </span>
                       </div>
-                      <h4 className="text-white font-medium mb-1">{todaySession.subject}</h4>
+                      <h4 className="text-white font-medium mb-1 group-hover:text-emerald-300 transition-colors">{todaySession.subject}</h4>
                       <p className="text-slate-400 text-sm mb-4 line-clamp-2">{todaySession.topic || 'No topic specified'}</p>
                       
                       {/* Join Button */}
@@ -272,18 +286,19 @@ function HomePage() {
                           href={todaySession.meetingLink}
                           target="_blank"
                           rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
                           className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white font-medium rounded-lg transition-all duration-200 shadow-lg shadow-emerald-500/20"
                         >
                           <Video className="w-4 h-4" />
                           Join Class
                         </a>
                       ) : (
-                        <button className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-700/50 text-slate-400 font-medium rounded-lg cursor-not-allowed">
+                        <span className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-700/50 text-slate-400 font-medium rounded-lg">
                           <Video className="w-4 h-4" />
                           No Meeting Link Yet
-                        </button>
+                        </span>
                       )}
-                    </div>
+                    </button>
 
                     {/* Session Materials */}
                     <div className="space-y-2">
@@ -409,9 +424,10 @@ function HomePage() {
                         <div className="p-1.5 sm:p-2 space-y-1.5 sm:space-y-2">
                           {daySessions.length > 0 ? (
                             daySessions.map((session) => (
-                              <div
+                              <button
                                 key={session.id}
-                                className="group p-2 sm:p-2.5 bg-slate-800/50 hover:bg-slate-800 border border-slate-700/50 hover:border-emerald-500/30 rounded-lg sm:rounded-xl transition-all"
+                                onClick={() => handleSessionClick(session)}
+                                className="group w-full text-left p-2 sm:p-2.5 bg-slate-800/50 hover:bg-slate-800 border border-slate-700/50 hover:border-emerald-500/30 rounded-lg sm:rounded-xl transition-all cursor-pointer"
                               >
                                 <div className="flex items-center gap-1 mb-1">
                                   <Clock className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-slate-500" />
@@ -437,7 +453,7 @@ function HomePage() {
                                     Join
                                   </a>
                                 )}
-                              </div>
+                              </button>
                             ))
                           ) : (
                             <div className="flex items-center justify-center h-20 sm:h-24">
