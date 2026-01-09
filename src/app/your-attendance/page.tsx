@@ -7,7 +7,7 @@ import AttendanceRecords from '@/components/AttendanceRecords'
 import LoadingAnimation from '@/components/LoadingAnimation'
 import { 
   Users, Home, Award, Calendar, GraduationCap,
-  Sparkles, LogOut, Trophy
+  Sparkles, LogOut, Trophy, MessageSquareHeart
 } from 'lucide-react'
 
 function YourAttendanceContent() {
@@ -93,12 +93,19 @@ function YourAttendanceContent() {
                 <Award className="w-4 h-4 inline-block mr-2" />
                 My Attendance
               </button>
-              <button
-                onClick={() => router.push('/xp-leaderboard')}
-                className="px-4 sm:px-6 py-3 text-sm font-medium text-slate-400 hover:text-white hover:bg-white/5 transition-colors whitespace-nowrap"
-              >
+<button
+              onClick={() => router.push('/xp-leaderboard')}
+              className="px-4 sm:px-6 py-3 text-sm font-medium text-slate-400 hover:text-white hover:bg-white/5 transition-colors whitespace-nowrap"
+            >
                 <Trophy className="w-4 h-4 inline-block mr-2" />
                 XP Leaderboard
+            </button>
+            <button
+              onClick={() => router.push('/feedback')}
+              className="px-4 sm:px-6 py-3 text-sm font-medium text-slate-400 hover:text-white hover:bg-white/5 transition-colors whitespace-nowrap"
+            >
+              <MessageSquareHeart className="w-4 h-4 inline-block mr-2" />
+              Feedback
             </button>
           </div>
         </div>

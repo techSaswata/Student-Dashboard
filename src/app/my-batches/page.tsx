@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { 
   Users, ChevronRight, ChevronLeft, Loader2, RefreshCw, 
   LogOut, Calendar, Sparkles, X, Clock, BookOpen, Award, Trophy,
-  GraduationCap, Video, FileText, ExternalLink, Home
+  GraduationCap, Video, FileText, ExternalLink, Home, MessageSquareHeart
 } from 'lucide-react'
 
 interface Batch {
@@ -459,6 +459,13 @@ function MyBatchesContent() {
                 <Trophy className="w-4 h-4 inline-block mr-2" />
                 XP Leaderboard
               </button>
+              <button
+                onClick={() => router.push('/feedback')}
+                className="px-4 sm:px-6 py-3 text-sm font-medium text-slate-400 hover:text-white hover:bg-white/5 transition-colors whitespace-nowrap"
+              >
+                <MessageSquareHeart className="w-4 h-4 inline-block mr-2" />
+                Feedback
+              </button>
             </div>
           </div>
         </nav>
@@ -622,6 +629,13 @@ function MyBatchesContent() {
             >
               <Trophy className="w-4 h-4 inline-block mr-2" />
               XP Leaderboard
+            </button>
+            <button
+              onClick={() => router.push('/feedback')}
+              className="px-4 sm:px-6 py-3 text-sm font-medium text-slate-400 hover:text-white hover:bg-white/5 transition-colors whitespace-nowrap"
+            >
+              <MessageSquareHeart className="w-4 h-4 inline-block mr-2" />
+              Feedback
             </button>
           </div>
         </div>
