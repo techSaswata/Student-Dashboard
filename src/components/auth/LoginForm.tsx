@@ -24,7 +24,6 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
   const [loadingCohortNumbers, setLoadingCohortNumbers] = useState(false)
   const [studentName, setStudentName] = useState('')
   const [error, setError] = useState<string | null>(null)
-  const [fieldErrors, setFieldErrors] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [linkSent, setLinkSent] = useState(false)
   const [countdown, setCountdown] = useState(0)
@@ -77,25 +76,18 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
   const handleSendLink = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
-    setFieldErrors([])
     setIsLoading(true)
 
     try {
-      const { data, error: sendError, fieldErrors: errors } = await authService.sendMagicLink({
+      const { data, error: sendError } = await authService.sendMagicLink({
         email,
         fullName,
         cohortType,
         cohortNumber
       })
 
-      if (errors && errors.length > 0) {
-        setFieldErrors(errors)
-        setError('Some details do not match our records')
-        return
-      }
-
       if (sendError || !data) {
-        setError(sendError || 'Failed to send verification link')
+        setError(sendError || 'Credentials not matched')
         return
       }
 
@@ -103,7 +95,7 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
       setLinkSent(true)
       setCountdown(60)
     } catch (err) {
-      setError('An unexpected error occurred. Please try again.')
+      setError('Credentials not matched')
       console.error('Send magic link error:', err)
     } finally {
       setIsLoading(false)
@@ -113,22 +105,15 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
   const handleResend = async () => {
     if (countdown > 0) return
     setError(null)
-    setFieldErrors([])
     setIsLoading(true)
 
     try {
-      const { data, error: sendError, fieldErrors: errors } = await authService.sendMagicLink({
+      const { data, error: sendError } = await authService.sendMagicLink({
         email,
         fullName,
         cohortType,
         cohortNumber
       })
-
-      if (errors && errors.length > 0) {
-        setFieldErrors(errors)
-        setError('Some details do not match our records')
-        return
-      }
 
       if (sendError || !data) {
         setError(sendError || 'Failed to resend verification link')
@@ -146,7 +131,6 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
   const handleChangeDetails = () => {
     setLinkSent(false)
     setError(null)
-    setFieldErrors([])
     setStudentName('')
   }
 
@@ -192,23 +176,13 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
             </p>
           </div>
 
-          {/* Error Messages */}
+          {/* Error Message */}
           {error && (
             <div className="relative mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl animate-in slide-in-from-top-2 duration-200">
-              <div className="flex items-center gap-3 mb-2">
-              <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
+              <div className="flex items-center gap-3">
+                <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
                 <p className="text-red-400 text-sm font-medium">{error}</p>
               </div>
-              {fieldErrors.length > 0 && (
-                <ul className="ml-8 mt-2 space-y-1">
-                  {fieldErrors.map((fieldError, index) => (
-                    <li key={index} className="text-red-400/80 text-xs flex items-center gap-2">
-                      <span className="w-1 h-1 bg-red-400 rounded-full" />
-                      {fieldError}
-                    </li>
-                  ))}
-                </ul>
-              )}
             </div>
           )}
 

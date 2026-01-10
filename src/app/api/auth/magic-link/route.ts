@@ -39,39 +39,20 @@ export async function POST(request: NextRequest) {
 
     if (studentError || !student) {
       return NextResponse.json(
-        { 
-          error: 'No student found with this email address.',
-          fieldErrors: ['Email not found in our records']
-        },
-        { status: 404 }
+        { error: 'Credentials not matched' },
+        { status: 400 }
       )
     }
 
     // Validate all fields match
-    const fieldErrors: string[] = []
+    const nameMatch = student['Full Name'].toLowerCase().trim() === normalizedName.toLowerCase()
+    const cohortTypeMatch = student['Cohort Type'].toLowerCase().trim() === normalizedCohortType.toLowerCase()
+    const cohortNumberMatch = student['Cohort Number'].toString().trim() === normalizedCohortNumber
 
-    // Check Full Name (case-insensitive comparison)
-    if (student['Full Name'].toLowerCase().trim() !== normalizedName.toLowerCase()) {
-      fieldErrors.push('Full Name does not match our records')
-    }
-
-    // Check Cohort Type (case-insensitive comparison)
-    if (student['Cohort Type'].toLowerCase().trim() !== normalizedCohortType.toLowerCase()) {
-      fieldErrors.push('Cohort Type does not match our records')
-    }
-
-    // Check Cohort Number
-    if (student['Cohort Number'].toString().trim() !== normalizedCohortNumber) {
-      fieldErrors.push('Cohort Number does not match our records')
-    }
-
-    // If any field doesn't match, return errors
-    if (fieldErrors.length > 0) {
+    // If any field doesn't match, return generic error
+    if (!nameMatch || !cohortTypeMatch || !cohortNumberMatch) {
       return NextResponse.json(
-        { 
-          error: 'Some details do not match our records. Please verify and try again.',
-          fieldErrors
-        },
+        { error: 'Credentials not matched' },
         { status: 400 }
       )
     }
