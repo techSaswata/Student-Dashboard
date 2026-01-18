@@ -55,9 +55,16 @@ export async function GET(request: NextRequest) {
 
     console.log('Found session:', session.id)
 
-    // Parse materials
-    const materials = session.initial_session_material || ''
-    const materialLinks = materials
+    // Parse materials from both columns
+    const initialMaterials = session.initial_session_material || ''
+    const sessionMaterials = session.session_material || ''
+    
+    // Combine both material sources
+    const allMaterials = [initialMaterials, sessionMaterials]
+      .filter(m => m.length > 0)
+      .join(',')
+    
+    const materialLinks = allMaterials
       .split(',')
       .map((link: string) => link.trim())
       .filter((link: string) => link.length > 0)
