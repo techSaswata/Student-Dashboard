@@ -14,12 +14,10 @@ interface SendMagicLinkResponse {
   message: string
   studentName: string
   error?: string
-  fieldErrors?: string[]
 }
 
 interface SendMagicLinkParams {
   email: string
-  fullName: string
   cohortType: string
   cohortNumber: string
 }
@@ -29,7 +27,6 @@ export const authService = {
   async sendMagicLink(params: SendMagicLinkParams): Promise<{ 
     data: SendMagicLinkResponse | null
     error: string | null
-    fieldErrors?: string[]
   }> {
     try {
       const response = await fetch('/api/auth/magic-link', {
@@ -43,8 +40,7 @@ export const authService = {
       if (!response.ok) {
         return { 
           data: null, 
-          error: data.error || 'Failed to send verification link',
-          fieldErrors: data.fieldErrors || []
+          error: data.error || 'Failed to send verification link'
         }
       }
 

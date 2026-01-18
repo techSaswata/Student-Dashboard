@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { Mail, User, Hash, Layers, AlertCircle, CheckCircle, Loader2, ExternalLink, GraduationCap } from 'lucide-react'
+import { Mail, Hash, Layers, AlertCircle, CheckCircle, Loader2, ExternalLink, GraduationCap } from 'lucide-react'
 import { authService } from '@/lib/auth'
 
 interface LoginFormProps {
@@ -17,7 +17,6 @@ const COHORT_TYPES = [
 
 export default function LoginForm({ onSuccess }: LoginFormProps) {
   const [email, setEmail] = useState('')
-  const [fullName, setFullName] = useState('')
   const [cohortType, setCohortType] = useState('')
   const [cohortNumber, setCohortNumber] = useState('')
   const [cohortNumbers, setCohortNumbers] = useState<string[]>([])
@@ -81,7 +80,6 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
     try {
       const { data, error: sendError } = await authService.sendMagicLink({
         email,
-        fullName,
         cohortType,
         cohortNumber
       })
@@ -110,7 +108,6 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
     try {
       const { data, error: sendError } = await authService.sendMagicLink({
         email,
-        fullName,
         cohortType,
         cohortNumber
       })
@@ -134,7 +131,7 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
     setStudentName('')
   }
 
-  const isFormValid = email && fullName && cohortType && cohortNumber
+  const isFormValid = email && cohortType && cohortNumber
 
   if (!isClient) return null
 
@@ -262,30 +259,6 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
                     )}
                   </div>
                 </div>
-              </div>
-
-              {/* Full Name */}
-              <div>
-                <label htmlFor="fullName" className="block text-sm font-medium text-slate-300 mb-2">
-                  Full Name
-                </label>
-                <div className="relative group">
-                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <User className="h-5 w-5 text-slate-500 group-focus-within:text-emerald-400 transition-colors" />
-                  </div>
-                  <input
-                    id="fullName"
-                    type="text"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    required
-                    className="block w-full pl-12 pr-4 py-3.5 bg-slate-800/50 border border-slate-700/50 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all duration-200"
-                    placeholder="Enter your full name"
-                  />
-                </div>
-                <p className="mt-2 text-xs text-slate-500">
-                  Enter your name exactly as registered
-                </p>
               </div>
 
               {/* Email */}

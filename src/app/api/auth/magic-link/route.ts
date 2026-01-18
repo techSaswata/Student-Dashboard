@@ -15,10 +15,10 @@ const supabaseB = createClient(
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, fullName, cohortType, cohortNumber } = await request.json()
+    const { email, cohortType, cohortNumber } = await request.json()
 
     // Validate all required fields
-    if (!email || !fullName || !cohortType || !cohortNumber) {
+    if (!email || !cohortType || !cohortNumber) {
       return NextResponse.json(
         { error: 'All fields are required' },
         { status: 400 }
@@ -26,7 +26,6 @@ export async function POST(request: NextRequest) {
     }
 
     const normalizedEmail = email.toLowerCase().trim()
-    const normalizedName = fullName.trim()
     const normalizedCohortType = cohortType.trim()
     const normalizedCohortNumber = cohortNumber.trim()
 
@@ -44,13 +43,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Validate all fields match
-    const nameMatch = student['Full Name'].toLowerCase().trim() === normalizedName.toLowerCase()
+    // Validate cohort fields match
     const cohortTypeMatch = student['Cohort Type'].toLowerCase().trim() === normalizedCohortType.toLowerCase()
     const cohortNumberMatch = student['Cohort Number'].toString().trim() === normalizedCohortNumber
 
     // If any field doesn't match, return generic error
-    if (!nameMatch || !cohortTypeMatch || !cohortNumberMatch) {
+    if (!cohortTypeMatch || !cohortNumberMatch) {
       return NextResponse.json(
         { error: 'Credentials not matched' },
         { status: 400 }
