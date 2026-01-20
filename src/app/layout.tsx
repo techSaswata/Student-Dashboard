@@ -7,7 +7,7 @@ const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
   title: 'MentiBy Student Dashboard',
-  description: 'Secure admin panel for managing onboarding data and cohort analytics',
+  description: 'Your personalized learning hub - track classes, attendance, and progress',
   icons: {
     icon: '/favicon.png',
   },
