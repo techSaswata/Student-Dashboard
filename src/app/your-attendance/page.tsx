@@ -7,7 +7,7 @@ import AttendanceRecords from '@/components/AttendanceRecords'
 import LoadingAnimation from '@/components/LoadingAnimation'
 import { 
   Users, Home, Award, Calendar, GraduationCap,
-  Sparkles, LogOut, Trophy, MessageSquareHeart
+  Sparkles, LogOut, Trophy, MessageSquareHeart, Clapperboard
 } from 'lucide-react'
 
 function YourAttendanceContent() {
@@ -86,6 +86,13 @@ function YourAttendanceContent() {
               >
               <Calendar className="w-4 h-4 inline-block mr-2" />
               My Schedule
+              </button>
+              <button
+                onClick={() => router.push('/recorded-classes')}
+                className="px-4 sm:px-6 py-3 text-sm font-medium text-slate-400 hover:text-white hover:bg-white/5 transition-colors whitespace-nowrap"
+              >
+                <Clapperboard className="w-4 h-4 inline-block mr-2" />
+                Pre-Recorded Content
               </button>
               <button
               className="px-4 sm:px-6 py-3 text-sm font-medium text-emerald-400 border-b-2 border-emerald-400 bg-emerald-500/5 whitespace-nowrap"

@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import AuthWrapper from '@/components/auth/AuthWrapper'
 import XPLeaderboard from '@/components/XPLeaderboard'
 import { 
-  Home, Calendar, Award, Trophy, LogOut, Sparkles, GraduationCap, Loader2, MessageSquareHeart
+  Home, Calendar, Award, Trophy, LogOut, Sparkles, GraduationCap, Loader2, MessageSquareHeart, Clapperboard
 } from 'lucide-react'
 
 interface Batch {
@@ -112,6 +112,13 @@ function XPLeaderboardContent() {
             >
               <Calendar className="w-4 h-4 inline-block mr-2" />
               My Schedule
+            </button>
+            <button
+              onClick={() => router.push('/recorded-classes')}
+              className="px-4 sm:px-6 py-3 text-sm font-medium text-slate-400 hover:text-white hover:bg-white/5 transition-colors whitespace-nowrap"
+            >
+              <Clapperboard className="w-4 h-4 inline-block mr-2" />
+              Pre-Recorded Content
             </button>
             <button
               onClick={() => router.push('/your-attendance')}
