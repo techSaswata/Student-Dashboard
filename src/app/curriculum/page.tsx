@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import AuthWrapper from '@/components/auth/AuthWrapper'
 import { useAuth } from '@/contexts/AuthContext'
@@ -49,6 +49,7 @@ function CurriculumContent() {
   const [sessions, setSessions] = useState<Session[]>([])
   const [loadingSessions, setLoadingSessions] = useState(false)
   const [checkedSessions, setCheckedSessions] = useState<Set<string>>(new Set())
+  const progressBeforeToggleRef = useRef<number | null>(null)
 
   // Load checked sessions from localStorage when batch changes
   useEffect(() => {
@@ -76,8 +77,38 @@ function CurriculumContent() {
     }
   }, [checkedSessions, selectedBatch])
 
+  // Sync progress to onboarding table (main Supabase)
+  useEffect(() => {
+    if (!selectedBatch || !user?.email || sessions.length === 0) return
+
+    const totalClasses = sessions.filter(s => s.sessionType?.toLowerCase() !== 'contest').length
+    if (totalClasses === 0) return
+
+    const progress = Math.round((checkedSessions.size / totalClasses) * 100)
+    const previousProgress = progressBeforeToggleRef.current
+
+    const timeoutId = window.setTimeout(() => {
+      fetch('/api/student/progress', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          enrollmentId: selectedBatch.enrollmentId,
+          progress,
+          email: user.email,
+          ...(previousProgress !== null && { previousProgress })
+        })
+      }).catch(err => console.error('Failed to sync progress:', err))
+      progressBeforeToggleRef.current = progress
+    }, 400)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [checkedSessions, selectedBatch, sessions.length, user?.email])
+
   const toggleSessionCheck = (sessionKey: string) => {
+    const totalClasses = sessions.filter(s => s.sessionType?.toLowerCase() !== 'contest').length
     setCheckedSessions(prev => {
+      progressBeforeToggleRef.current =
+        totalClasses > 0 ? Math.round((prev.size / totalClasses) * 100) : 0
       const newSet = new Set(prev)
       if (newSet.has(sessionKey)) {
         newSet.delete(sessionKey)

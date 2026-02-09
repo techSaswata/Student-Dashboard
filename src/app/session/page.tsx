@@ -9,6 +9,7 @@ import {
   LogOut, Loader2, RefreshCw, Sparkles, Link2,
   ExternalLink, ChevronLeft, BookOpen, AlertCircle
 } from 'lucide-react'
+import { canShowJoinButton } from '@/lib/utils'
 
 interface SessionDetails {
   id: number
@@ -285,17 +286,29 @@ function SessionDetailsPage() {
             </div>
           </div>
 
-          {/* Join Button */}
+          {/* Join Button - enabled 2hrs before start, disabled if session has recording */}
           {session.teams_meeting_link ? (
-            <a
-              href={session.teams_meeting_link}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-6 w-full flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white font-semibold rounded-xl transition-all shadow-lg shadow-emerald-500/20"
-            >
-              <Video className="w-5 h-5" />
-              Join Class
-            </a>
+            canShowJoinButton({
+              date: session.date,
+              time: session.time,
+              meetingLink: session.teams_meeting_link,
+              sessionRecording: session.session_recording
+            }) ? (
+              <a
+                href={session.teams_meeting_link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-6 w-full flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white font-semibold rounded-xl transition-all shadow-lg shadow-emerald-500/20"
+              >
+                <Video className="w-5 h-5" />
+                Join Class
+              </a>
+            ) : (
+              <div className="mt-6 w-full flex items-center justify-center gap-2 px-6 py-3 bg-slate-700/50 text-slate-400 font-medium rounded-xl cursor-not-allowed">
+                <Video className="w-5 h-5" />
+                {session.session_recording ? 'Recording available' : 'Join opens 2 hrs before class'}
+              </div>
+            )
           ) : (
             <div className="mt-6 w-full flex items-center justify-center gap-2 px-6 py-3 bg-slate-700/50 text-slate-400 font-medium rounded-xl">
               <Video className="w-5 h-5" />

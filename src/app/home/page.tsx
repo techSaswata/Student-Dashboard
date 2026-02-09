@@ -9,6 +9,7 @@ import {
   LogOut, Loader2, RefreshCw, Home, Award, Trophy, Users,
   BookOpen, GraduationCap, ChevronLeft, ChevronRight, ExternalLink, MessageSquareHeart, Clapperboard, List
 } from 'lucide-react'
+import { canShowJoinButton } from '@/lib/utils'
 
 interface SessionData {
   id: string
@@ -301,18 +302,30 @@ function HomePage() {
                       <h4 className="text-white font-medium mb-1 group-hover:text-emerald-300 transition-colors">{todaySession.subject}</h4>
                       <p className="text-slate-400 text-sm mb-4 line-clamp-2">{todaySession.topic || 'No topic specified'}</p>
 
-                      {/* Join Button */}
+                      {/* Join Button - enabled 2hrs before start, disabled if session has recording */}
                       {todaySession.meetingLink ? (
-                        <a
-                          href={todaySession.meetingLink}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white font-medium rounded-lg transition-all duration-200 shadow-lg shadow-emerald-500/20"
-                        >
-                          <Video className="w-4 h-4" />
-                          Join Class
-                        </a>
+                        canShowJoinButton({
+                          date: todaySession.date,
+                          time: todaySession.time,
+                          meetingLink: todaySession.meetingLink,
+                          sessionRecording: todaySession.sessionRecording
+                        }) ? (
+                          <a
+                            href={todaySession.meetingLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white font-medium rounded-lg transition-all duration-200 shadow-lg shadow-emerald-500/20"
+                          >
+                            <Video className="w-4 h-4" />
+                            Join Class
+                          </a>
+                        ) : (
+                          <span className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-700/50 text-slate-400 font-medium rounded-lg cursor-not-allowed">
+                            <Video className="w-4 h-4" />
+                            {todaySession.sessionRecording ? 'Recording available' : 'Join opens 2 hrs before class'}
+                          </span>
+                        )
                       ) : (
                         <span className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-700/50 text-slate-400 font-medium rounded-lg">
                           <Video className="w-4 h-4" />
@@ -463,16 +476,28 @@ function HomePage() {
                                   {session.sessionType || 'Session'}
                                 </span>
                                 {session.meetingLink && (
-                                  <a
-                                    href={session.meetingLink}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="mt-2 w-full flex items-center justify-center gap-1 px-2 py-1 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 text-[9px] sm:text-[10px] rounded transition-colors"
-                                    onClick={(e) => e.stopPropagation()}
-                                  >
-                                    <Video className="w-2.5 h-2.5" />
-                                    Join
-                                  </a>
+                                  canShowJoinButton({
+                                    date: session.date,
+                                    time: session.time,
+                                    meetingLink: session.meetingLink,
+                                    sessionRecording: session.sessionRecording
+                                  }) ? (
+                                    <a
+                                      href={session.meetingLink}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="mt-2 w-full flex items-center justify-center gap-1 px-2 py-1 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 text-[9px] sm:text-[10px] rounded transition-colors"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      <Video className="w-2.5 h-2.5" />
+                                      Join
+                                    </a>
+                                  ) : (
+                                    <span className="mt-2 w-full flex items-center justify-center gap-1 px-2 py-1 bg-slate-700/50 text-slate-500 text-[9px] sm:text-[10px] rounded cursor-not-allowed">
+                                      <Video className="w-2.5 h-2.5" />
+                                      {session.sessionRecording ? 'Recording' : 'Join 2hr before'}
+                                    </span>
+                                  )
                                 )}
                               </button>
                             ))
