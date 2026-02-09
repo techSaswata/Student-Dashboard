@@ -6,7 +6,7 @@ import AuthWrapper from '@/components/auth/AuthWrapper'
 import { 
   Video, Sparkles, Clock, Rocket, ExternalLink,
   LogOut, GraduationCap, Home, Calendar, Award, Trophy, MessageSquareHeart,
-  Play, Clapperboard, BookOpen, Layers
+  Play, Clapperboard, BookOpen, Layers, List
 } from 'lucide-react'
 
 function RecordedClassesPage() {
@@ -76,6 +76,13 @@ function RecordedClassesPage() {
             >
               <Calendar className="w-4 h-4 inline-block mr-2" />
               My Schedule
+            </button>
+            <button
+              onClick={() => router.push('/curriculum')}
+              className="px-4 sm:px-6 py-3 text-sm font-medium text-slate-400 hover:text-white hover:bg-white/5 transition-colors whitespace-nowrap"
+            >
+              <List className="w-4 h-4 inline-block mr-2" />
+              Curriculum
             </button>
             <button
               className="px-4 sm:px-6 py-3 text-sm font-medium text-cyan-400 border-b-2 border-cyan-400 bg-cyan-500/5 whitespace-nowrap"

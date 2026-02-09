@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { 
   Users, ChevronRight, ChevronLeft, Loader2, RefreshCw, 
   LogOut, Calendar, Sparkles, X, Clock, BookOpen, Award, Trophy,
-  GraduationCap, Video, FileText, ExternalLink, Home, MessageSquareHeart, Clapperboard
+  GraduationCap, Video, FileText, ExternalLink, Home, MessageSquareHeart, Clapperboard, List
 } from 'lucide-react'
 
 interface Batch {
@@ -446,6 +446,13 @@ function MyBatchesContent() {
                 My Schedule
               </button>
               <button
+                onClick={() => router.push('/curriculum')}
+                className="px-4 sm:px-6 py-3 text-sm font-medium text-slate-400 hover:text-white hover:bg-white/5 transition-colors whitespace-nowrap"
+              >
+                <List className="w-4 h-4 inline-block mr-2" />
+                Curriculum
+              </button>
+              <button
                 onClick={() => router.push('/recorded-classes')}
                 className="px-4 sm:px-6 py-3 text-sm font-medium text-slate-400 hover:text-white hover:bg-white/5 transition-colors whitespace-nowrap"
               >
@@ -622,6 +629,13 @@ function MyBatchesContent() {
             >
               <Calendar className="w-4 h-4 inline-block mr-2" />
               My Schedule
+            </button>
+            <button
+              onClick={() => router.push('/curriculum')}
+              className="px-4 sm:px-6 py-3 text-sm font-medium text-slate-400 hover:text-white hover:bg-white/5 transition-colors whitespace-nowrap"
+            >
+              <List className="w-4 h-4 inline-block mr-2" />
+              Curriculum
             </button>
             <button
               onClick={() => router.push('/recorded-classes')}

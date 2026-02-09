@@ -7,7 +7,7 @@ import AuthWrapper from '@/components/auth/AuthWrapper'
 import {
   Calendar, Clock, Video, FileText,
   LogOut, Loader2, RefreshCw, Home, Award, Trophy, Users,
-  BookOpen, GraduationCap, ChevronLeft, ChevronRight, ExternalLink, MessageSquareHeart, Clapperboard
+  BookOpen, GraduationCap, ChevronLeft, ChevronRight, ExternalLink, MessageSquareHeart, Clapperboard, List
 } from 'lucide-react'
 
 interface SessionData {
@@ -193,6 +193,13 @@ function HomePage() {
             >
               <Calendar className="w-4 h-4 inline-block mr-2" />
               My Schedule
+            </button>
+            <button
+              onClick={() => router.push('/curriculum')}
+              className="px-4 sm:px-6 py-3 text-sm font-medium text-slate-400 hover:text-white hover:bg-white/5 transition-colors whitespace-nowrap"
+            >
+              <List className="w-4 h-4 inline-block mr-2" />
+              Curriculum
             </button>
             <button
               onClick={() => router.push('/recorded-classes')}

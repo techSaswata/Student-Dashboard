@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import AuthWrapper from '@/components/auth/AuthWrapper'
 import { 
   MessageSquareHeart, Sparkles, Star, Send, ArrowLeft,
-  LogOut, GraduationCap, Home, Calendar, Award, Trophy, Clapperboard
+  LogOut, GraduationCap, Home, Calendar, Award, Trophy, Clapperboard, List
 } from 'lucide-react'
 
 function FeedbackPage() {
@@ -75,6 +75,13 @@ function FeedbackPage() {
             >
               <Calendar className="w-4 h-4 inline-block mr-2" />
               My Schedule
+            </button>
+            <button
+              onClick={() => router.push('/curriculum')}
+              className="px-4 sm:px-6 py-3 text-sm font-medium text-slate-400 hover:text-white hover:bg-white/5 transition-colors whitespace-nowrap"
+            >
+              <List className="w-4 h-4 inline-block mr-2" />
+              Curriculum
             </button>
             <button
               onClick={() => router.push('/recorded-classes')}
