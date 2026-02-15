@@ -52,6 +52,8 @@ function MyBatchesContent() {
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [sessions, setSessions] = useState<Session[]>([])
   const [loadingSessions, setLoadingSessions] = useState(false)
+  // Attendance: dates when student was present (for session coloring)
+  const [presentDates, setPresentDates] = useState<Set<string>>(new Set())
 
   const fetchBatches = async () => {
     if (!user?.email) {
@@ -78,21 +80,25 @@ function MyBatchesContent() {
       const fetchedBatches = data.batches || []
       setBatches(fetchedBatches)
       
-      // If only one batch, auto-select it and fetch sessions before showing anything
+      // If only one batch, auto-select it and fetch sessions + attendance before showing anything
       if (fetchedBatches.length === 1) {
         setSelectedBatch(fetchedBatches[0])
         setCurrentMonth(new Date())
-        // Don't set loading false yet - wait for sessions to load
+        // Fetch sessions and attendance in parallel before showing schedule
         try {
-          const sessionsResponse = await fetch(
-            `/api/student/sessions?cohortType=${encodeURIComponent(fetchedBatches[0].cohortType)}&cohortNumber=${encodeURIComponent(fetchedBatches[0].cohortNumber)}&days=730&offset=-365`
-          )
-          const sessionsData = await sessionsResponse.json()
-          if (sessionsResponse.ok) {
-            setSessions(sessionsData.sessions || [])
-          }
+          const batch = fetchedBatches[0]
+          const sessionsPromise = fetch(
+            `/api/student/sessions?cohortType=${encodeURIComponent(batch.cohortType)}&cohortNumber=${encodeURIComponent(batch.cohortNumber)}&days=730&offset=-365`
+          ).then(r => r.json())
+          const attendancePromise = user?.enrollmentId
+            ? fetch(`/api/student/attendance-dates?enrollmentId=${encodeURIComponent(user.enrollmentId)}`).then(r => r.json())
+            : Promise.resolve({ presentDates: [] as string[] })
+
+          const [sessionsData, attendanceData] = await Promise.all([sessionsPromise, attendancePromise])
+          if (sessionsData.sessions) setSessions(sessionsData.sessions)
+          if (attendanceData.presentDates) setPresentDates(new Set(attendanceData.presentDates))
         } catch (err) {
-          console.error('Error fetching sessions:', err)
+          console.error('Error fetching sessions or attendance:', err)
         }
         setLoading(false)
         setInitialLoadComplete(true)
@@ -111,15 +117,18 @@ function MyBatchesContent() {
   const fetchSessions = async (batch: Batch) => {
     setLoadingSessions(true)
     try {
-      const response = await fetch(
+      const sessionsPromise = fetch(
         `/api/student/sessions?cohortType=${encodeURIComponent(batch.cohortType)}&cohortNumber=${encodeURIComponent(batch.cohortNumber)}&days=730&offset=-365`
-      )
-      const data = await response.json()
-      if (response.ok) {
-        setSessions(data.sessions || [])
-      }
+      ).then(r => r.json())
+      const attendancePromise = user?.enrollmentId
+        ? fetch(`/api/student/attendance-dates?enrollmentId=${encodeURIComponent(user.enrollmentId)}`).then(r => r.json())
+        : Promise.resolve({ presentDates: [] as string[] })
+
+      const [data, attendanceData] = await Promise.all([sessionsPromise, attendancePromise])
+      if (data.sessions) setSessions(data.sessions)
+      if (attendanceData.presentDates) setPresentDates(new Set(attendanceData.presentDates))
     } catch (err) {
-      console.error('Error fetching sessions:', err)
+      console.error('Error fetching sessions or attendance:', err)
     } finally {
       setLoadingSessions(false)
     }
@@ -194,6 +203,47 @@ function MyBatchesContent() {
     return checkDate < today
   }
 
+  const todayStr = () => {
+    const t = new Date()
+    return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`
+  }
+
+  // Session attendance status: 'upcoming' | 'present' | 'absent'
+  const getSessionAttendanceStatus = (session: Session): 'upcoming' | 'present' | 'absent' => {
+    const sessionDate = session.date?.split('T')[0] || session.date
+    if (!sessionDate) return 'upcoming'
+    if (sessionDate > todayStr()) return 'upcoming'
+    return presentDates.has(sessionDate) ? 'present' : 'absent'
+  }
+
+  // Colors by attendance: green = present, red = absent, blue = upcoming (no grey)
+  const getSessionAttendanceColors = (session: Session) => {
+    const status = getSessionAttendanceStatus(session)
+    if (status === 'upcoming') {
+      return {
+        bg: 'bg-gradient-to-r from-blue-500/20 to-cyan-500/20 hover:from-blue-500/30 hover:to-cyan-500/30',
+        border: 'border-blue-500/20 hover:border-blue-500/40',
+        text: 'text-blue-300',
+        dot: 'text-blue-400/70'
+      }
+    }
+    if (status === 'present') {
+      return {
+        bg: 'bg-gradient-to-r from-emerald-500/20 to-green-500/20 hover:from-emerald-500/30 hover:to-green-500/30',
+        border: 'border-emerald-500/20 hover:border-emerald-500/40',
+        text: 'text-emerald-300',
+        dot: 'text-emerald-400/70'
+      }
+    }
+    // absent
+    return {
+      bg: 'bg-gradient-to-r from-red-500/20 to-rose-500/20 hover:from-red-500/30 hover:to-rose-500/30',
+      border: 'border-red-500/20 hover:border-red-500/40',
+      text: 'text-red-300',
+      dot: 'text-red-400/70'
+    }
+  }
+
   const handleSessionClick = (session: Session) => {
     sessionStorage.setItem('sessionPageData', JSON.stringify({
       table: selectedBatch?.tableName,
@@ -205,68 +255,16 @@ function MyBatchesContent() {
     router.push('/session')
   }
 
-  // Get session type colors
-  const getSessionTypeColors = (sessionType: string | undefined, isPast: boolean) => {
-    if (isPast) {
-      return {
-        bg: 'bg-slate-700/30 hover:bg-slate-700/50',
-        border: 'border-slate-600/20',
-        text: 'text-slate-400',
-        dot: 'text-slate-500'
-      }
-    }
-    
-    switch (sessionType?.toLowerCase()) {
-      case 'live session':
-        return {
-          bg: 'bg-gradient-to-r from-emerald-500/20 to-teal-500/20 hover:from-emerald-500/30 hover:to-teal-500/30',
-          border: 'border-emerald-500/20 hover:border-emerald-500/40',
-          text: 'text-emerald-300',
-          dot: 'text-emerald-400/70'
-        }
-      case 'self paced':
-        return {
-          bg: 'bg-gradient-to-r from-blue-500/20 to-cyan-500/20 hover:from-blue-500/30 hover:to-cyan-500/30',
-          border: 'border-blue-500/20 hover:border-blue-500/40',
-          text: 'text-blue-300',
-          dot: 'text-blue-400/70'
-        }
-      case 'project':
-        return {
-          bg: 'bg-gradient-to-r from-purple-500/20 to-pink-500/20 hover:from-purple-500/30 hover:to-pink-500/30',
-          border: 'border-purple-500/20 hover:border-purple-500/40',
-          text: 'text-purple-300',
-          dot: 'text-purple-400/70'
-        }
-      case 'assignment':
-        return {
-          bg: 'bg-gradient-to-r from-amber-500/20 to-yellow-500/20 hover:from-amber-500/30 hover:to-yellow-500/30',
-          border: 'border-amber-500/20 hover:border-amber-500/40',
-          text: 'text-amber-300',
-          dot: 'text-amber-400/70'
-        }
-      case 'contest':
-        return {
-          bg: 'bg-gradient-to-r from-orange-500/20 to-red-500/20 hover:from-orange-500/30 hover:to-red-500/30',
-          border: 'border-orange-500/20 hover:border-orange-500/40',
-          text: 'text-orange-300',
-          dot: 'text-orange-400/70'
-        }
-      case 'doubt session':
-        return {
-          bg: 'bg-gradient-to-r from-rose-500/20 to-pink-500/20 hover:from-rose-500/30 hover:to-pink-500/30',
-          border: 'border-rose-500/20 hover:border-rose-500/40',
-          text: 'text-rose-300',
-          dot: 'text-rose-400/70'
-        }
-      default:
-        return {
-          bg: 'bg-gradient-to-r from-slate-500/20 to-gray-500/20 hover:from-slate-500/30 hover:to-gray-500/30',
-          border: 'border-slate-500/20 hover:border-slate-500/40',
-          text: 'text-slate-300',
-          dot: 'text-slate-400/70'
-        }
-    }
+  // Day cell border/background by attendance: blue = upcoming, green = present, red = absent (no grey)
+  const getDayCellStyle = (day: number, daySessions: Session[], hasSession: boolean, todayClass: boolean, isPast: boolean) => {
+    if (todayClass) return 'border-amber-400 bg-amber-500/15 ring-1 ring-amber-400/30'
+    if (!hasSession) return 'border-white/5 bg-slate-900/30 hover:bg-slate-800/30'
+    if (!isPast) return 'border-blue-500/40 bg-blue-500/5 hover:border-blue-400/60'
+    const anyPresent = daySessions.some(s => presentDates.has(s.date?.split('T')[0] || s.date || ''))
+    const anyAbsent = daySessions.some(s => !presentDates.has(s.date?.split('T')[0] || s.date || ''))
+    if (anyPresent && !anyAbsent) return 'border-emerald-500/40 bg-emerald-500/10 hover:border-emerald-400/60'
+    if (anyAbsent) return 'border-red-500/40 bg-red-500/10 hover:border-red-400/60'
+    return 'border-emerald-500/40 bg-emerald-500/10 hover:border-emerald-400/60'
   }
 
   const renderCalendar = () => {
@@ -292,20 +290,12 @@ function MyBatchesContent() {
       days.push(
         <div
           key={day}
-          className={`h-24 sm:h-32 rounded-lg border-2 transition-all duration-200 overflow-hidden ${
-            todayClass
-              ? 'border-amber-400 bg-amber-500/15 ring-1 ring-amber-400/30'
-              : hasSession
-              ? isPast 
-                ? 'border-slate-600/30 bg-slate-800/30'
-                : 'border-cyan-500/40 bg-cyan-500/5 hover:border-cyan-400/60'
-              : 'border-white/5 bg-slate-900/30 hover:bg-slate-800/30'
-          }`}
+          className={`h-24 sm:h-32 rounded-lg border-2 transition-all duration-200 overflow-hidden ${getDayCellStyle(day, daySessions, hasSession, todayClass, isPast)}`}
         >
           {/* Day number */}
           <div className="p-1.5 sm:p-2 flex justify-between items-start">
             <span className={`text-xs sm:text-sm font-medium ${
-              todayClass ? 'text-amber-400 font-bold' : hasSession ? (isPast ? 'text-slate-500' : 'text-cyan-400') : 'text-slate-500'
+              todayClass ? 'text-amber-400 font-bold' : hasSession ? (isPast ? 'text-slate-400' : 'text-blue-400') : 'text-slate-500'
             }`}>
               {day}
             </span>
@@ -319,7 +309,7 @@ function MyBatchesContent() {
           {/* Sessions */}
           <div className="px-1.5 sm:px-2 space-y-1 overflow-y-auto max-h-16 sm:max-h-20 scrollbar-hide">
             {daySessions.map((session, idx) => {
-              const colors = getSessionTypeColors(session.sessionType, isPast)
+              const colors = getSessionAttendanceColors(session)
               return (
                 <button
                   key={idx}
@@ -387,7 +377,7 @@ function MyBatchesContent() {
         </div>
 
         {/* Header */}
-        <header className="relative z-10 border-b border-white/5 bg-slate-950/50 backdrop-blur-xl sticky top-0">
+        <header className="z-10 border-b border-white/5 bg-slate-950/50 backdrop-blur-xl sticky top-0">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -516,12 +506,16 @@ function MyBatchesContent() {
               <span className="text-slate-400">Today</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded bg-cyan-500/20 border-2 border-cyan-500/50" />
-              <span className="text-slate-400">Upcoming Class</span>
+              <div className="w-3 h-3 rounded bg-blue-500/30 border-2 border-blue-400" />
+              <span className="text-slate-400">Upcoming</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded bg-slate-700/50 border border-slate-600/50" />
-              <span className="text-slate-400">Past Class</span>
+              <div className="w-3 h-3 rounded bg-emerald-500/30 border-2 border-emerald-400" />
+              <span className="text-slate-400">Present</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded bg-red-500/30 border-2 border-red-400" />
+              <span className="text-slate-400">Absent</span>
             </div>
           </div>
 
@@ -582,7 +576,7 @@ function MyBatchesContent() {
       </div>
 
       {/* Header */}
-      <header className="relative z-10 border-b border-white/5 bg-slate-950/50 backdrop-blur-xl sticky top-0">
+      <header className="z-10 border-b border-white/5 bg-slate-950/50 backdrop-blur-xl sticky top-0">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">

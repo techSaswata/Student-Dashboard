@@ -131,6 +131,12 @@ function YourAttendanceContent() {
         <div className="mb-8">
           <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2">Your Attendance</h2>
             <p className="text-slate-400">Track your class attendance and performance</p>
+            {user?.cohortType?.toLowerCase() === 'basic' && (user?.cohortNumber === '6' || user?.cohortNumber === '6.0') && (
+              <div className="mt-3 flex items-center gap-2 rounded-xl bg-emerald-500/15 border border-emerald-400/30 px-4 py-2.5">
+                <Calendar className="w-5 h-5 text-emerald-400 shrink-0" />
+                <p className="text-emerald-200 font-medium text-sm sm:text-base">Attendance is calculated from 14th Feb onwards.</p>
+              </div>
+            )}
         </div>
 
         {/* Attendance Records Component */}
