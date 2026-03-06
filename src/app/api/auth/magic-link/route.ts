@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { generateOTP, hashOTP, generateOTPEmailHTML } from '@/lib/otp'
+import { sendEmail } from '@/lib/email'
 
 // Main Supabase for onboarding table
 const supabase = createClient(
@@ -7,11 +9,13 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-// Supabase B for auth (magic link)
+// Supabase B for auth + OTP storage
 const supabaseB = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL_B!,
   process.env.SUPABASE_SERVICE_ROLE_KEY_B!
 )
+
+const OTP_EXPIRY_MINUTES = 5
 
 export async function POST(request: NextRequest) {
   try {
@@ -55,56 +59,82 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // All validations passed - send magic link
-    const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-    const redirectUrl = `${origin}/home`
-    
-    const userData = {
-      role: 'student',
-      enrollment_id: student['EnrollmentID'],
-      student_name: student['Full Name'],
-      cohort_type: student['Cohort Type'],
-      cohort_number: student['Cohort Number']
-    }
-    
-    // Send magic link via Supabase B
-    const { error: signInError } = await supabaseB.auth.signInWithOtp({
-      email: normalizedEmail,
-      options: {
-        emailRedirectTo: redirectUrl,
-        data: userData
-      }
-    })
+    // Rate limit: check if an unused OTP was created < 60s ago
+    const { data: recentOtp } = await supabaseB
+      .from('otp_codes_student')
+      .select('created_at')
+      .eq('email', normalizedEmail)
+      .eq('used', false)
+      .gt('expires_at', new Date().toISOString())
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single()
 
-    if (signInError) {
-      console.error('Supabase B magic link error:', signInError)
+    if (recentOtp) {
+      const createdAt = new Date(recentOtp.created_at).getTime()
+      if (Date.now() - createdAt < 60 * 1000) {
+        return NextResponse.json(
+          { error: 'Please wait before requesting a new code.' },
+          { status: 429 }
+        )
+      }
+    }
+
+    // Invalidate any previous unused OTPs for this email
+    await supabaseB
+      .from('otp_codes_student')
+      .update({ used: true })
+      .eq('email', normalizedEmail)
+      .eq('used', false)
+
+    // Generate and store new OTP
+    const otp = generateOTP()
+    const otpHash = hashOTP(otp)
+    const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000).toISOString()
+
+    const { error: insertError } = await supabaseB
+      .from('otp_codes_student')
+      .insert({
+        email: normalizedEmail,
+        otp_hash: otpHash,
+        enrollment_id: student['EnrollmentID'],
+        student_name: student['Full Name'],
+        cohort_type: student['Cohort Type'],
+        cohort_number: student['Cohort Number'],
+        expires_at: expiresAt,
+      })
+
+    if (insertError) {
+      console.error('OTP insert error:', insertError)
       return NextResponse.json(
-        { error: 'Failed to send verification link. Please try again.' },
+        { error: 'Failed to generate verification code.' },
         { status: 500 }
       )
     }
 
-    // Also update user metadata for existing users (signInWithOtp only sets on first signup)
-    // Find the user by email and update their metadata
-    const { data: existingUsers } = await supabaseB.auth.admin.listUsers()
-    const existingUser = existingUsers?.users?.find(
-      u => u.email?.toLowerCase() === normalizedEmail
-    )
-    
-    if (existingUser) {
-      await supabaseB.auth.admin.updateUserById(existingUser.id, {
-        user_metadata: userData
-      })
+    // Send OTP email via Resend
+    const emailHtml = generateOTPEmailHTML(student['Full Name'], otp)
+    const sent = await sendEmail({
+      to: normalizedEmail,
+      subject: 'Your MentiBY Login Code',
+      html: emailHtml,
+    })
+
+    if (!sent) {
+      return NextResponse.json(
+        { error: 'Failed to send verification email. Please try again.' },
+        { status: 500 }
+      )
     }
 
     return NextResponse.json({
       success: true,
-      message: 'Verification link sent successfully',
+      message: 'Verification code sent successfully',
       studentName: student['Full Name']
     })
 
   } catch (error: any) {
-    console.error('Magic link error:', error)
+    console.error('Send OTP error:', error)
     return NextResponse.json(
       { error: 'Something went wrong. Please try again.' },
       { status: 500 }

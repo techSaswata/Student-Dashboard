@@ -1,8 +1,14 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { Mail, Hash, Layers, AlertCircle, CheckCircle, Loader2, ExternalLink, GraduationCap } from 'lucide-react'
+import { Mail, Hash, Layers, AlertCircle, Loader2, GraduationCap, KeyRound } from 'lucide-react'
 import { authService } from '@/lib/auth'
+import { createClient } from '@supabase/supabase-js'
+
+const supabaseB = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL_B!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY_B!
+)
 
 interface LoginFormProps {
   onSuccess?: () => void
@@ -22,9 +28,10 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
   const [cohortNumbers, setCohortNumbers] = useState<string[]>([])
   const [loadingCohortNumbers, setLoadingCohortNumbers] = useState(false)
   const [studentName, setStudentName] = useState('')
+  const [otpValue, setOtpValue] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
-  const [linkSent, setLinkSent] = useState(false)
+  const [step, setStep] = useState<'email' | 'otp'>('email')
   const [countdown, setCountdown] = useState(0)
   const [isClient, setIsClient] = useState(false)
 
@@ -72,7 +79,7 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
     }
   }, [countdown])
 
-  const handleSendLink = async (e: React.FormEvent) => {
+  const handleSendOTP = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
     setIsLoading(true)
@@ -85,16 +92,51 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
       })
 
       if (sendError || !data) {
-        setError(sendError || 'Credentials not matched')
+        setError(sendError || 'Failed to send verification code')
         return
       }
 
       setStudentName(data.studentName)
-      setLinkSent(true)
+      setStep('otp')
       setCountdown(60)
     } catch (err) {
-      setError('Credentials not matched')
-      console.error('Send magic link error:', err)
+      setError('An unexpected error occurred. Please try again.')
+      console.error('Send OTP error:', err)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleVerifyOTP = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError(null)
+    setIsLoading(true)
+
+    try {
+      const { data, error: verifyError } = await authService.verifyOTP(email, otpValue)
+
+      if (verifyError || !data) {
+        setError(verifyError || 'Verification failed')
+        return
+      }
+
+      // Set the Supabase session using the tokens returned from the server
+      const { error: sessionError } = await supabaseB.auth.setSession({
+        access_token: data.session.access_token,
+        refresh_token: data.session.refresh_token,
+      })
+
+      if (sessionError) {
+        console.error('Set session error:', sessionError)
+        setError('Failed to establish session. Please try again.')
+        return
+      }
+
+      // Trigger auth refresh in the parent
+      onSuccess?.()
+    } catch (err) {
+      setError('An unexpected error occurred. Please try again.')
+      console.error('Verify OTP error:', err)
     } finally {
       setIsLoading(false)
     }
@@ -113,10 +155,11 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
       })
 
       if (sendError || !data) {
-        setError(sendError || 'Failed to resend verification link')
+        setError(sendError || 'Failed to resend verification code')
         return
       }
 
+      setOtpValue('')
       setCountdown(60)
     } catch (err) {
       setError('Failed to resend. Please try again.')
@@ -126,9 +169,10 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
   }
 
   const handleChangeDetails = () => {
-    setLinkSent(false)
+    setStep('email')
     setError(null)
     setStudentName('')
+    setOtpValue('')
   }
 
   const isFormValid = email && cohortType && cohortNumber
@@ -146,7 +190,7 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
       </div>
 
       {/* Grid Pattern Overlay */}
-      <div 
+      <div
         className="absolute inset-0 opacity-[0.02]"
         style={{
           backgroundImage: `linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)`,
@@ -159,7 +203,7 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
         <div className="relative bg-gradient-to-b from-slate-900/80 to-slate-950/90 backdrop-blur-2xl border border-white/[0.08] rounded-3xl p-8 shadow-2xl shadow-emerald-950/20">
           {/* Glow Effect */}
           <div className="absolute -inset-px bg-gradient-to-b from-emerald-500/20 via-transparent to-transparent rounded-3xl pointer-events-none" />
-          
+
           {/* Header */}
           <div className="relative text-center mb-8">
             <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-emerald-500 via-teal-500 to-emerald-600 rounded-2xl mb-5 shadow-lg shadow-emerald-500/30 ring-1 ring-white/10">
@@ -184,8 +228,8 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
           )}
 
           {/* Content */}
-          {!linkSent ? (
-            <form onSubmit={handleSendLink} className="relative space-y-5">
+          {step === 'email' ? (
+            <form onSubmit={handleSendOTP} className="relative space-y-5">
               {/* Cohort Type */}
               <div>
                 <label htmlFor="cohortType" className="block text-sm font-medium text-slate-300 mb-2">
@@ -262,23 +306,23 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
               </div>
 
               {/* Email */}
-            <div>
+              <div>
                 <label htmlFor="email" className="block text-sm font-medium text-slate-300 mb-2">
-                Email Address
-              </label>
+                  Email Address
+                </label>
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                     <Mail className="h-5 w-5 text-slate-500 group-focus-within:text-emerald-400 transition-colors" />
-                </div>
-                <input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
+                  </div>
+                  <input
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
                     className="block w-full pl-12 pr-4 py-3.5 bg-slate-800/50 border border-slate-700/50 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all duration-200"
                     placeholder="student@example.com"
-                />
+                  />
                 </div>
               </div>
 
@@ -290,62 +334,62 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
                 {isLoading ? (
                   <>
                     <Loader2 className="w-5 h-5 animate-spin" />
-                    Verifying...
+                    Sending Code...
                   </>
                 ) : (
                   <>
                     <Mail className="w-5 h-5" />
-                    Send Login Link
+                    Send Verification Code
                   </>
                 )}
               </button>
             </form>
           ) : (
             <div className="relative space-y-6">
-              {/* Success State */}
+              {/* OTP Input State */}
               <div className="text-center">
                 <div className="inline-flex items-center justify-center w-16 h-16 bg-emerald-500/10 border border-emerald-500/20 rounded-full mb-4">
-                  <CheckCircle className="w-8 h-8 text-emerald-400" />
+                  <KeyRound className="w-8 h-8 text-emerald-400" />
                 </div>
-                <h2 className="text-xl font-semibold text-white mb-2">Check your email!</h2>
+                <h2 className="text-xl font-semibold text-white mb-2">Enter verification code</h2>
                 <p className="text-slate-400 text-sm">
-                  Hi <span className="text-emerald-400 font-medium">{studentName}</span>, we sent a login link to
+                  Hi <span className="text-emerald-400 font-medium">{studentName}</span>, we sent a 6-digit code to
                 </p>
                 <p className="text-white font-medium mt-1">{email}</p>
-            </div>
-
-              {/* Instructions */}
-              <div className="bg-slate-800/30 border border-slate-700/30 rounded-xl p-4 space-y-3">
-                <div className="flex items-start gap-3">
-                  <div className="w-6 h-6 bg-emerald-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <span className="text-emerald-400 text-xs font-bold">1</span>
-                  </div>
-                  <p className="text-slate-300 text-sm">Open your email inbox</p>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="w-6 h-6 bg-emerald-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <span className="text-emerald-400 text-xs font-bold">2</span>
-                  </div>
-                  <p className="text-slate-300 text-sm">Click the login link in the email</p>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="w-6 h-6 bg-emerald-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <span className="text-emerald-400 text-xs font-bold">3</span>
-                  </div>
-                  <p className="text-slate-300 text-sm">You&apos;ll be automatically logged in</p>
-                </div>
               </div>
 
-              {/* Open Gmail Button */}
-              <a
-                href="https://mail.google.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full bg-slate-800/50 hover:bg-slate-700/50 border border-slate-700/50 text-white font-medium py-3 px-4 rounded-xl transition-all duration-200 flex items-center justify-center gap-2"
-              >
-                <ExternalLink className="w-4 h-4" />
-                Open Gmail
-              </a>
+              <form onSubmit={handleVerifyOTP} className="space-y-4">
+                <div>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={6}
+                    value={otpValue}
+                    onChange={(e) => setOtpValue(e.target.value.replace(/\D/g, ''))}
+                    className="block w-full text-center text-3xl tracking-[0.5em] font-mono py-4 bg-slate-800/50 border border-slate-700/50 rounded-xl text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all duration-200"
+                    placeholder="------"
+                    autoFocus
+                    autoComplete="one-time-code"
+                  />
+                  <p className="text-center text-xs text-slate-500 mt-2">Code expires in 5 minutes</p>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isLoading || otpValue.length !== 6}
+                  className="group w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:from-slate-700 disabled:to-slate-700 text-white font-semibold py-3.5 px-4 rounded-xl transition-all duration-300 transform hover:scale-[1.02] disabled:scale-100 disabled:cursor-not-allowed shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 disabled:shadow-none flex items-center justify-center gap-2"
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      Verifying...
+                    </>
+                  ) : (
+                    'Verify & Sign In'
+                  )}
+                </button>
+              </form>
 
               {/* Resend & Change Details */}
               <div className="flex items-center justify-between pt-2">
@@ -360,7 +404,7 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
                   disabled={countdown > 0 || isLoading}
                   className="text-sm text-emerald-400 hover:text-emerald-300 disabled:text-slate-600 transition-colors disabled:cursor-not-allowed"
                 >
-                  {countdown > 0 ? `Resend in ${countdown}s` : 'Resend link'}
+                  {countdown > 0 ? `Resend in ${countdown}s` : 'Resend code'}
                 </button>
               </div>
             </div>
@@ -384,4 +428,4 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
       </div>
     </div>
   )
-} 
+}
